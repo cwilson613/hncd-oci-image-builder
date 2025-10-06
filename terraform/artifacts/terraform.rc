@@ -1,0 +1,7 @@
+# Only use the baked mirror. No registry fallback.
+provider_installation {
+  filesystem_mirror {
+    path    = "/opt/terraform/providers"
+    include = ["hashicorp/*"]
+  }
+}
