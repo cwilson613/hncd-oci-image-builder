@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run from repo/terraform (one level up from scripts/)
+# Run from repo/terraform
 cd "$(dirname "$0")/.."
 
-# Use disk-backed temp (your /tmp is tiny tmpfs). No extra dirs needed.
+# Avoid small /tmp tmpfs
 export TMPDIR="${TMPDIR:-/var/tmp}"
 
-MIRROR_DIR="./mirror"
+LOCK_DIR="artifacts/lock-module"   # tiny module WITH required_providers
+MIRROR_DIR="mirror"
 
-# Assumes required_providers are already defined in the current directory's .tf files.
-terraform init -input=false -no-color
+# Sanity
+[ -f "${LOCK_DIR}/versions.tf" ] || { echo "Missing ${LOCK_DIR}/versions.tf"; exit 1; }
 
-# Lock only the arch you asked for
-terraform providers lock -platform=linux_amd64
+terraform -chdir="${LOCK_DIR}" init -input=false -no-color
+terraform -chdir="${LOCK_DIR}" providers lock -platform=linux_amd64
 
-# Mirror exact provider zips into the build context
-mkdir -p "$MIRROR_DIR"
-terraform providers mirror "$MIRROR_DIR"
+mkdir -p "${MIRROR_DIR}"
+terraform -chdir="${LOCK_DIR}" providers mirror "$(pwd)/${MIRROR_DIR}"
 
-echo "OK: providers mirrored to $MIRROR_DIR/"
+# Keep the lock for auditing
+cp -f "${LOCK_DIR}/.terraform.lock.hcl" artifacts/.terraform.lock.hcl
+
+echo "OK: mirrored to ${MIRROR_DIR}/"
